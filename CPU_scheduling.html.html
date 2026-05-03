@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CPU Scheduling Simulator</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@400;600;800&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Exo 2', sans-serif;
+      background: #0d0d1a;
+      color: #e0e0ff;
+      min-height: 100vh;
+      padding: 30px 20px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #00ffe7;
+      text-shadow: 0 0 18px #00ffe799;
+      margin-bottom: 30px;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 0 auto;
+      background: #13132a;
+      border: 1px solid #2a2a5a;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 0 40px #00ffe715;
+    }
+
+    .row { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+
+    label { font-size: 0.85rem; color: #9090cc; min-width: 110px; }
+
+    input[type=number] {
+      background: #1a1a35;
+      border: 1px solid #3a3a7a;
+      color: #e0e0ff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.95rem;
+      width: 120px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input[type=number]:focus { border-color: #00ffe7; box-shadow: 0 0 8px #00ffe730; }
+
+    button {
+      background: linear-gradient(135deg, #00ffe7, #007aff);
+      border: none;
+      color: #0d0d1a;
+      font-family: 'Exo 2', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      padding: 9px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:hover { opacity: 0.88; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    #cpuInputs { margin: 14px 0; }
+    .proc-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .proc-label {
+      font-family: 'Share Tech Mono', monospace;
+      color: #00ffe7;
+      font-size: 0.9rem;
+      min-width: 30px;
+    }
+
+    #algo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #ffcc00;
+      text-shadow: 0 0 8px #ffcc0066;
+      margin: 18px 0 8px;
+      letter-spacing: 1px;
+    }
+
+    #result {
+      background: #0f0f22;
+      border: 1px solid #2a2a55;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      margin-bottom: 14px;
+    }
+    #result b { color: #00ffe7; }
+
+    #chart {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .box {
+      border: 1.5px solid #00ffe755;
+      background: #1a1a35;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+      color: #00ffe7;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.25s, transform 0.25s, background 0.25s;
+    }
+    .box.active {
+      opacity: 1;
+      transform: translateY(0);
+      background: #003a33;
+      box-shadow: 0 0 10px #00ffe740;
+    }
+
+    .hint {
+      font-size: 0.78rem;
+      color: #5555aa;
+      margin-top: 14px;
+      text-align: center;
+    }
+
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+  </style>
+</head>
+<body>
+
+<h1>⚙ CPU Scheduling</h1>
+
+<div class="container">
+  <div class="row">
+    <label>No. of Processes</label>
+    <input type="number" id="n" min="1" max="10" placeholder="e.g. 4">
+    <button onclick="createCPU()">Create</button>
+  </div>
+
+  <div id="cpuInputs"></div>
+
+  <div class="btn-row">
+    <button onclick="runCPU()">▶ Run</button>
+    <button onclick="nextCPU()">Next Algorithm →</button>
+  </div>
+
+  <div id="algo"></div>
+  <div id="result"></div>
+  <div id="chart"></div>
+
+  <p class="hint">Press <b>Run</b> to start · <b>Next</b> cycles through FCFS → SJF → Round Robin → Priority</p>
+</div>
+
+<script>
+let processes  = [];
+let cpuStep    = 0;
+let cpuDone    = false;
+let cpuStarted = false;
+
+function createCPU() {
+  let n   = parseInt(document.getElementById("n").value) || 0;
+  let div = document.getElementById("cpuInputs");
+  div.innerHTML = "";
+
+  for (let i = 0; i < n; i++) {
+    let row = document.createElement("div");
+    row.className = "proc-row";
+
+    let lbl = document.createElement("span");
+    lbl.className = "proc-label";
+    lbl.innerText = "P" + (i + 1);
+
+    let at = document.createElement("input");
+    at.type = "number"; at.placeholder = "Arrival"; at.id = "at" + i; at.min = 0;
+
+    let bt = document.createElement("input");
+    bt.type = "number"; bt.placeholder = "Burst"; bt.id = "bt" + i; bt.min = 1;
+
+    row.appendChild(lbl);
+    row.appendChild(at);
+    row.appendChild(bt);
+    div.appendChild(row);
+  }
+}
+
+function runCPU() {
+  processes = [];
+  let n = parseInt(document.getElementById("n").value) || 0;
+  for (let i = 0; i < n; i++) {
+    let at = parseInt(document.getElementById("at" + i).value) || 0;
+    let bt = parseInt(document.getElementById("bt" + i).value) || 0;
+    processes.push({ id: "P" + (i + 1), at, bt, remaining: bt });
+  }
+  cpuStep = 0; cpuStarted = true; cpuDone = false;
+  document.getElementById("result").innerHTML = "";
+  document.getElementById("chart").innerHTML  = "";
+  document.getElementById("algo").innerText   = "";
+  nextCPU();
+}
+
+function calculateAndDisplay(order, procs) {
+  let time = 0, wt = {}, tat = {}, ct = {};
+  order.forEach(id => {
+    let p = procs.find(x => x.id === id);
+    if (time < p.at) time = p.at;
+    wt[id] = time - p.at;
+    time  += p.bt;
+    ct[id] = time;
+    tat[id] = ct[id] - p.at;
+  });
+  let wtArr  = Object.values(wt);
+  let tatArr = Object.values(tat);
+  let avgWT  = wtArr.reduce((a,b)=>a+b,0)/wtArr.length;
+  let avgTAT = tatArr.reduce((a,b)=>a+b,0)/tatArr.length;
+
+  document.getElementById("result").innerHTML =
+    "<b>WT:</b> "          + wtArr.join(", ")  + "<br>" +
+    "<b>TAT:</b> "         + tatArr.join(", ") + "<br><br>" +
+    "<b>Average WT:</b> "  + avgWT.toFixed(2)  + "<br>" +
+    "<b>Average TAT:</b> " + avgTAT.toFixed(2);
+}
+
+function nextCPU() {
+  if (!cpuStarted || processes.length === 0) return;
+  if (cpuDone) {
+    document.getElementById("algo").innerText = "✔ All algorithms done. Press Run to restart.";
+    cpuDone = false; cpuStarted = false;
+    return;
+  }
+
+  let algo = document.getElementById("algo");
+  document.getElementById("chart").innerHTML = "";
+
+  // FCFS
+  if (cpuStep === 0) {
+    algo.innerText = "① FCFS — First Come First Served";
+    let p     = [...processes].sort((a, b) => a.at - b.at);
+    let order = p.map(x => x.id);
+    drawCPU(order);
+    calculateAndDisplay(order, p);
+  }
+  // SJF
+  else if (cpuStep === 1) {
+    algo.innerText = "② SJF — Shortest Job First (Non-Preemptive)";
+    let time = 0, done = [], p = [...processes];
+    while (done.length < p.length) {
+      let available = p.filter(x => x.at <= time && !done.includes(x));
+      if (!available.length) { time++; continue; }
+      available.sort((a, b) => a.bt - b.bt);
+      let chosen = available[0];
+      done.push(chosen);
+      time += chosen.bt;
+    }
+    let order = done.map(x => x.id);
+    drawCPU(order);
+    calculateAndDisplay(order, processes);
+  }
+  // Round Robin
+  else if (cpuStep === 2) {
+    algo.innerText = "③ Round Robin (Quantum = 2)";
+    let q = 2, time = 0, queue = [], order = [], completion = {};
+    let p = processes.map(x => ({ ...x }));
+    while (true) {
+      p.forEach(proc => { if (proc.at === time) queue.push(proc); });
+      if (!queue.length) {
+        if (p.every(x => x.remaining <= 0)) break;
+        time++; continue;
+      }
+      let current = queue.shift();
+      let exec = Math.min(q, current.remaining);
+      current.remaining -= exec;
+      time += exec;
+      order.push(current.id);
+      p.forEach(proc => {
+        if (proc.at > time - exec && proc.at <= time) queue.push(proc);
+      });
+      if (current.remaining > 0) queue.push(current);
+      else completion[current.id] = time;
+    }
+    drawCPU(order);
+    let wt = [], tat = [];
+    processes.forEach(proc => {
+      let ct = completion[proc.id];
+      tat.push(ct - proc.at);
+      wt.push(ct - proc.at - proc.bt);
+    });
+    let avgWT  = wt.reduce((a,b)=>a+b,0)/wt.length;
+    let avgTAT = tat.reduce((a,b)=>a+b,0)/tat.length;
+    document.getElementById("result").innerHTML =
+      "<b>WT:</b> "          + wt.join(", ")   + "<br>" +
+      "<b>TAT:</b> "         + tat.join(", ")  + "<br><br>" +
+      "<b>Average WT:</b> "  + avgWT.toFixed(2)  + "<br>" +
+      "<b>Average TAT:</b> " + avgTAT.toFixed(2);
+  }
+  // Priority
+  else if (cpuStep === 3) {
+    algo.innerText = "④ Priority (lower BT = higher priority)";
+    let time = 0, done = [], p = [...processes];
+    while (done.length < p.length) {
+      let available = p.filter(x => x.at <= time && !done.includes(x));
+      if (!available.length) { time++; continue; }
+      available.sort((a, b) => a.bt - b.bt);
+      let chosen = available[0];
+      done.push(chosen);
+      time += chosen.bt;
+    }
+    let order = done.map(x => x.id);
+    drawCPU(order);
+    calculateAndDisplay(order, processes);
+    cpuDone = true;
+    algo.innerText += "  ✔ Last algorithm";
+  }
+
+  cpuStep++;
+}
+
+function drawCPU(order) {
+  let chart = document.getElementById("chart");
+  chart.innerHTML = "";
+  let i = 0;
+  function anim() {
+    if (i < order.length) {
+      let b = document.createElement("div");
+      b.className = "box";
+      b.innerText = order[i];
+      chart.appendChild(b);
+      setTimeout(() => b.classList.add("active"), 50);
+      i++;
+      setTimeout(anim, 180);
+    }
+  }
+  anim();
+}
+</script>
+</body>
+</html>
